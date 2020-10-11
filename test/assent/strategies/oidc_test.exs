@@ -43,6 +43,19 @@ defmodule Assent.Strategy.OIDCTest do
     end
   end
 
+  describe "authorize_url/2 with self-issued provider" do
+    setup %{config: config} do
+      {:ok, config: [site: "https://self-issued.me", redirect_uri: config[:redirect_uri]]}
+    end
+
+    test "with self-issued registration", %{config: config} do
+      assert {:ok, %{url: url, session_params: %{state: state}}} = OIDC.authorize_url(config)
+
+      refute is_nil(state)
+      assert url =~ "openid://?client_id=http%3A%2F%2Flocalhost%3A4000%2Fauth%2Fcallback&redirect_uri=http%3A%2F%2Flocalhost%3A4000%2Fauth%2Fcallback&response_type=id_token&scope=openid&state=#{state}"
+    end
+  end
+
   describe "callback/2" do
     @user_claims %{sub: "1", name: "Dan Schultzer", email: "foo@example.com", email_verified: true}
     @user %{"email" => "foo@example.com", "name" => "Dan Schultzer", "sub" => "1", "email_verified" => true}
@@ -423,6 +436,17 @@ defmodule Assent.Strategy.OIDCTest do
       expect_oidc_userinfo_request(bypass, gen_id_token(bypass))
 
       assert {:ok, %{"sub" => "1"}} = OIDC.fetch_userinfo(config, token)
+    end
+  end
+
+  describe "callback/2 with self-issued provider" do
+    setup %{config: config} do
+      {:ok, config: [site: "https://self-issued.me", redirect_uri: config[:redirect_uri]]}
+    end
+
+    test "validates", %{config: config, callback_params: params} do
+      assert {:ok, %{user: user}} = OIDC.callback(config, params)
+      assert user == %{"sub" => "248289761001"}
     end
   end
 end
